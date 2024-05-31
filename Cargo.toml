@@ -1,0 +1,3 @@
+[workspace]
+members = ["ussd","mainframe","caller"]
+resolver = "2"
