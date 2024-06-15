@@ -1,5 +1,19 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+use thiserror::Error;
+
+#[derive(Debug)]
+pub struct Ussd {}
+
+#[derive(Debug, Error)]
+pub enum Error {}
+
+impl Ussd {
+    pub fn new() -> Self {
+        todo!()
+    }
+
+    pub fn parse(_data: &[u8]) -> Result<Self, Error> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -8,7 +22,8 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+        let data = b"**002*number*BS*T#";
+        let _result = Ussd::parse(&data[..]).expect("Failed parsing ussd code");
+        // assert_eq!(result, 4);
     }
 }
