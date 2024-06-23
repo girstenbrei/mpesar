@@ -4,4 +4,10 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+# async-nats = "0.35.1"
+axum = "0.7.5"
+# futures-util = "0.3.30"
 miette = { version = "7.2.0", features = ["fancy"] }
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "postgres"] }
+tokio = { version = "1.38.0", features = ["full"] }
+ussd = { version = "0.1.0", path = "../ussd" }
