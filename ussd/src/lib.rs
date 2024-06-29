@@ -1,9 +1,8 @@
+use std::{result, vec};
+
 use thiserror::Error;
 
 const MAX_LENGTH: usize = 182;
-
-#[derive(Debug)]
-pub struct Ussd {}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -21,6 +20,8 @@ pub enum Error {
 enum GroupParseError {
     #[error("done *ucked up")]
     Unknown,
+    #[error("done *ucked up")]
+    InvalidTermination,
 }
 
 enum GroupParseResult<'a> {
@@ -33,47 +34,71 @@ struct UssdGroup<'a> {
 }
 
 impl UssdGroup<'_> {
-    fn parse(_x: &[u8]) -> Result<GroupParseResult, GroupParseError> {
-        let mut next = _x.into_iter().next();
+    fn parse(_ussd_group: &[u8]) -> Result<GroupParseResult, GroupParseError> {
+        let mut ussd_group_iter = _ussd_group.into_iter();
+        let mut next_group_part = ussd_group_iter.next();
+        let mut terminated = false;
 
-       while next.is_some() {
-           
-       }
-
-        return Err(GroupParseError::Unknown);
+        while next_group_part.is_some() {
+            let value = next_group_part.unwrap();
+            if !(48..57).contains(value) {
+                return Err(GroupParseError::Unknown);
+            } else if value == &32 {
+                terminated = true
+            }
+            next_group_part = ussd_group_iter.next();
+            if terminated && next_group_part.is_some() {
+                return Err(GroupParseError::InvalidTermination);
+            }
+        }
+        if !terminated {
+            return Err(GroupParseError::Unknown);
+        }
+        let result = match terminated {
+            true => GroupParseResult::End(UssdGroup {
+                content: _ussd_group,
+            }),
+            false => GroupParseResult::Valid(UssdGroup {
+                content: _ussd_group,
+            }),
+        };
+        return Ok(result);
     }
 }
 
-impl Ussd {
-    pub fn new() -> Self {
-        todo!()
+pub fn parse(mut _data: &[u8]) -> Result<Vec<Vec<&u8>>, Error> {
+    if _data.len() >= MAX_LENGTH {
+        return Err(Error::ToLong {
+            over: _data.len() - MAX_LENGTH,
+            max_allowed: MAX_LENGTH,
+        });
+    }
+    let is_invalid_start = !_data.starts_with(&[42]) || !_data.starts_with(&[32]);
+    if is_invalid_start {
+        return Err(Error::InvalidStart { first: 42 });
     }
 
-    pub fn parse(mut _data: &[u8]) -> Result<Self, Error> {
-        let is_valid: bool = false;
+    let mut ussd_groups_iter = _data.split(|x: &u8| x == &42).map(UssdGroup::parse);
 
-        if _data.len() >= MAX_LENGTH {
-            return Err(Error::ToLong {
-                over: _data.len() - MAX_LENGTH,
-                max_allowed: MAX_LENGTH,
-            });
-        }
-        let split: Vec<UssdGroup> = _data
-            .split(|x: &u8| x == &42)
-            .map(UssdGroup::parse)
-            .map(|x| x.unwrap())
-            .collect();
-
-        print!("AAAAAAAA{:?}", _data.first());
-        if !_data.starts_with(&[42]) || !_data.starts_with(&[32]) {
-            return Err(Error::InvalidStart { first: 42 });
-        }
-        if !is_valid {
-            return Err(Error::Unknown);
-        } else {
-            return Ok(Ussd::new());
-        }
+    let mut ussd_terminated = false;
+    let mut result: Vec<Vec<&u8>> = Vec::new();
+    while let Some(parsed_group_result) = ussd_groups_iter.next() {
+        let parsed_group = match parsed_group_result {
+            Ok(GroupParseResult::End(r)) => {
+                ussd_terminated = true;
+                r
+            }
+            Err(GroupParseError::InvalidTermination) => return Err(Error::InvalidTermination {}),
+            Err(GroupParseError::Unknown) => return Err(Error::Unknown {}),
+            Ok(GroupParseResult::Valid(r)) => r,
+        };
+        let group = Vec::from_iter(parsed_group.content);
+        result.push(group)
     }
+    if !ussd_terminated {
+        return Err(Error::InvalidTermination {});
+    }
+    return Ok(result);
 }
 
 #[cfg(test)]
@@ -83,7 +108,7 @@ mod tests {
     #[test]
     fn it_works() {
         let data: &[u8] = b"*";
-        let _result = Ussd::parse(&data[..]).expect("Failed parsing ussd code");
+        let _result = parse(&data[..]).expect("Failed parsing ussd code");
         // assert_eq!(result, 4);
     }
 
@@ -92,7 +117,7 @@ mod tests {
         let data: &[u8] = b"**11*22*33#";
         let split: Vec<&[u8]> = data.split(|x: &u8| x == &42 || x == &32).collect();
         print!("{:?}", split);
-        let _result = Ussd::parse(&data[..]).expect("Failed parsing ussd code");
+        let _result = parse(&data[..]).expect("Failed parsing ussd code");
         // assert_eq!(result, 4);
     }
 }
