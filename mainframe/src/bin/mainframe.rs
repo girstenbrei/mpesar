@@ -3,7 +3,7 @@ use miette::{IntoDiagnostic, Result};
 use serde::Deserialize;
 use serde_json::from_slice;
 use sqlx::{postgres::PgPoolOptions, FromRow, PgPool};
-//use rust_decimal::Decimal
+use ussd::parse;
 
 #[derive(Debug, Clone)]
 struct AppState {
@@ -51,10 +51,12 @@ async fn handler(State(state): State<AppState>, body: Bytes) -> Result<String, S
     let request_body: RequestBody = from_slice(&body).map_err(|e| StatusCode::BAD_REQUEST)?;
 
     let account_id: i32 = request_body.account_id;
-    let ussd_code = request_body.ussd_code;
-
+    let ussd_bytes = request_body.ussd_code.as_bytes();
     println!("Received Account ID {}", account_id);
-    println!("Received USSD Code {}", ussd_code);
+    // println!("Received USSD Code {}", ussd_code);
+    
+    let ussd_code = parse(ussd_bytes).map_err(|_e| StatusCode::IM_A_TEAPOT)?;
+    println!("{:#?}", ussd_code);
 
     let account: Account = sqlx::query_as("SELECT * FROM mainframe.accounts WHERE account_id = $1")
         .bind(account_id)
